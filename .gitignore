@@ -127,3 +127,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Ignore these files 
+
+user_posting_emulation.py 
+project_pin_api.py 
