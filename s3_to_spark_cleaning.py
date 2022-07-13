@@ -8,6 +8,7 @@ from json import load
 import findspark
 import pyspark
 import multiprocessing
+import os 
 from pyspark.sql import SQLContext
 from pyspark import SparkContext, SparkConf
 from pyspark.sql import SparkSession
@@ -18,7 +19,7 @@ from pyspark.sql.functions import when
 from pyspark.sql.types import IntegerType
 
 #TODO: Clean up the variable names for the dataframes and make some comments on the code
-
+os.environ['PYSPARK_SUBMIT_ARGS']='--packages com.amazonaws:aws-java-sdk-s3:1.12.196,org.apache.hadoop:hadoop-aws:3.3.1,com.datastax.spark:spark-cassandra-connector_2.12:3.2.0 pyspark-shell'
 class SparkCleaning:
     #TODO: debug this code 
     def __init__(self):
@@ -27,7 +28,7 @@ class SparkCleaning:
         
     
        
-        findspark.init()
+        findspark.init(os.environ["SPARK_HOME"])
 
         self.cfg = (
    		 pyspark.SparkConf()
@@ -190,13 +191,24 @@ class SparkCleaning:
 
         return cleaned_df 
 	
-    
+    def send_to_cassandra(self, cleaned_df):
+        cleaned_df.write \
+        .format("org.apache.spark.sql.cassandra") \
+        .mode("overwrite") \
+        .option("confirm.truncate", "true") \
+        .option("spark.cassandra.connection.host", "127.0.0.1") \
+        .option("spark.cassandra.connection.port", "9042") \
+        .option("keyspace" , "pinterest") \
+        .option("table", "pinterest_data") \
+        .save()
+
 if __name__ == "__main__":
     new_dataframe = SparkCleaning()
     new_dataframe.start_spark_session()
     new_dataframe.set_s3_bucket_resource('wr95-pintrest-data-bucket')
     new_dataframe.create_and_read_data_into_dataframe(20, 'json-data_0.json')
-    new_dataframe.clean_spark_dataframe_columns()
+    cleaned_df = new_dataframe.clean_spark_dataframe_columns()
+    new_dataframe.send_to_cassandra(cleaned_df)
    
 		
 
