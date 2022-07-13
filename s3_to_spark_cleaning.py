@@ -101,24 +101,40 @@ class SparkCleaning:
 
 
 
-    def clean_spark_dataframe_rows(self):
+    def clean_spark_dataframe_columns(self):
+        # Drop the 'downloaded', 'save_location' and 'index columns' 
         cleaned_rows = self.df.drop('downloaded', 'save_location', 'index')
+        # Add a new column called id
         clean_id  = cleaned_rows.withColumn(
             'id', row_number().over(Window.orderBy(monotonically_increasing_id())) - 1
             )
+        # Remove and replace the suffixes from the follower count and convert them to their numerical values 
         clean_follower_count_k = clean_id.withColumn('follower_count', regexp_replace('follower_count','k','000'))
         clean_follower_count_M = clean_follower_count_k.withColumn('follower_count', regexp_replace('follower_count','M','000000'))
+        # Remove and replace strings with nulls using regexp 
         clean_follower_count_null = clean_follower_count_M.withColumn('follower_count', regexp_replace('follower_count','User Info Error','null'))
         clean_description_field = clean_follower_count_null.withColumn('description', regexp_replace('description','No description available Story format','null'))
         clean_title_field = clean_description_field.withColumn('title', regexp_replace('title', 'No Title Data Available', 'null'))
         clean_tag_list  = clean_title_field.withColumn('tag_list', regexp_replace('tag_list', 'N,o, ,T,a,g,s, ,A,v,a,i,l,a,b,l,e','null'))
+        clean_image_src = clean_tag_list.withColumn('image_src', regexp_replace('image_src', 'Image src error','null' ))
 
 
-        # s3_df_clean = s3_df_clean.withColumn('follower_count', col('follower_count').cast('int'))
-
-        cleaned_rows_final = clean_tag_list.withColumn('follower_count', col('follower_count').cast('integer'))
-        cleaned_rows_final.show()
-        return cleaned_rows_final
+        # Cast the follower_count column to an integer 
+        cleaned_rows_final = clean_image_src.withColumn('follower_count', col('follower_count').cast('integer'))
+        # Re-arrange the order of the columns 
+        cleaned_rows_final_reordered = cleaned_rows_final.select(
+            'id',
+            'unique_id',
+            'category',
+            'title',
+            'follower_count',
+            'tag_list',
+            'is_image_or_video',
+            'image_src',
+            'description'
+        )
+        cleaned_rows_final_reordered.show() 
+        return cleaned_rows_final_reordered
 
 
 
@@ -180,11 +196,8 @@ if __name__ == "__main__":
     new_dataframe.start_spark_session()
     new_dataframe.set_s3_bucket_resource('wr95-pintrest-data-bucket')
     new_dataframe.create_and_read_data_into_dataframe(20, 'json-data_0.json')
-    new_dataframe.clean_spark_dataframe_rows()
-    # new_dataframe.add_monotonically_increasing_id()
-    # new_dataframe.clean_follower_count('follower_count')
-    # new_dataframe.convert_to_integer('follower_count')
-    # new_dataframe.clean_spark_dataframe()
+    new_dataframe.clean_spark_dataframe_columns()
+   
 		
 
 
