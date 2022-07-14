@@ -4,6 +4,31 @@ import prestodb
 A sample query using presto connected to a 
 cassandra table 
 
+NOTE: Please start both presto and cassandra first before running the script 
+
+PRESTO
+
+Run the following inside the bin folder of your presto installation 
+
+sudo ./presto --server localhost:8090 --catalog cassandra
+The port number can be configured under the settings
+
+CASSANDRA 
+for Cassandra, use: 
+
+sudo Cassandra -R 
+
+to start the daemon 
+
+To further check run:
+
+nodetool status 
+
+and sudo service cassandra status 
+
+To check that cassandra is up 
+
+
 '''
 # Set the connection 
 
