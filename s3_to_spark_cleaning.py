@@ -20,8 +20,60 @@ from pyspark.sql.types import IntegerType
 
 #TODO: Clean up the variable names for the dataframes and make some comments on the code
 os.environ['PYSPARK_SUBMIT_ARGS']='--packages com.amazonaws:aws-java-sdk-s3:1.12.196,org.apache.hadoop:hadoop-aws:3.3.1,com.datastax.spark:spark-cassandra-connector_2.12:3.2.0 pyspark-shell'
+
+'''
+DataCleaning Strategy: 
+
+
+# Drop the downloaded column (or change it to True/False)
+
+# Drop the save location column 
+
+# Remove and replace the suffixes from the follower_count column 
+
+
+# Cleaning the follower count column 
+
+# Steps 
+
+# 1. Replace 'User Info Error' with null 
+
+# 2. convert 'k' and 'M' into '000' and '000000'
+
+# 3. Convert the column into an integer
+
+# convert the 'follower_count' column in the dataframe to an integer 
+
+For other columns, change instances of strings saying 'no data' to null 
+
+Drop the index column 
+'''
 class SparkCleaning:
-    #TODO: debug this code 
+    '''
+    A class to read and clean a Spark dataframe. 
+    The cleaned dataframe is then sent to a cassandra database 
+
+    Methods: 
+    start_spark_session
+
+    set_s3_bucket_resource
+
+    create_and_read_data_into_dataframe
+
+    create_dataframe
+
+    send_to_cassandra 
+
+    Attributes 
+
+    self.findspark : obj
+    Instantiates the findspark object 
+
+    self.cfg : obj 
+    Sets the configuration of the spark environment 
+
+
+    '''
     def __init__(self):
         self.findspark = findspark
         
@@ -57,14 +109,28 @@ class SparkCleaning:
 # Import the data from the S3 Bucket 
 # Store it in an object 
 
-    def set_s3_bucket_resource(self, bucket_name):
+    def set_s3_bucket_resource(self, bucket_name : str):
+        '''
+        Method to set the s3_bucket_resource 
+
+        Parameters
+        bucket_name: The name of your s3 bucket. 
+        (Please configure the other settings via awscli) 
+
+        '''
         self.s3_resource = boto3.resource('s3')
         self.bucket = self.s3_resource.Bucket(bucket_name)
 
 
 # Reading in the first row of the dataframe 
 
-    def create_dataframe(self, bucket_key):
+    def create_dataframe(self, bucket_key : str):
+        '''
+        Method to create the spark_dataframe 
+
+        Parameters: 
+        bucket_key : the name of a file inside your s3 bucket 
+        '''
         object = self.bucket.Object(key=bucket_key)
         get_body = load(object.get()['Body'])
         self.df = self.spark.createDataFrame([list(get_body.values())], list(get_body.keys()))
@@ -72,7 +138,21 @@ class SparkCleaning:
 
 
 
-    def create_and_read_data_into_dataframe(self, number_of_records, bucket_key):
+    def create_and_read_data_into_dataframe(self, number_of_records : int , bucket_key : str):
+        '''
+        Method to create a spark dataframe, and append any other dataframes to it
+
+        Parameters: 
+        number_of_records : int 
+        The number of records the user wants to add 
+
+        bucket_key : str
+        The name of a file inside your s3 bucket 
+
+        returns: 
+        self.df : DataFrame 
+        A dataframe with length equal to the number of records requested. 
+        '''
         object = self.bucket.Object(key=bucket_key)
         get_body = load(object.get()['Body'])
         self.df = self.spark.createDataFrame([list(get_body.values())], list(get_body.keys()))
@@ -89,20 +169,16 @@ class SparkCleaning:
 
 
 
-
-# # Things to clean: 
-
-# Drop the downloaded column (or change it to True/False)
-
-# Drop the save location column 
-
-# Maybe do something about the follower count?
-
-# Set the index as the index column 
-
-
-
     def clean_spark_dataframe_columns(self):
+
+        '''
+        Method to clean the columns of the spark dataframe 
+
+        Returns: 
+        cleaned_rows_final_reordered : DataFrame
+        A cleaned spark dataframe via the following transformations 
+
+        '''
         # Drop the 'downloaded', 'save_location' and 'index columns' 
         cleaned_rows = self.df.drop('downloaded', 'save_location', 'index')
         # Add a new column called id
@@ -138,60 +214,24 @@ class SparkCleaning:
         return cleaned_rows_final_reordered
 
 
-
-    def add_monotonically_increasing_id(self):
-        df_id = self.cleaned_rows_df.withColumn(
-            'id', row_number().over(Window.orderBy(monotonically_increasing_id())) - 1
-            )
-        return df_id 
-
-
-
-# Cleaning the follower count column 
-
-# Steps 
-
-# 1. Replace 'User Info Error' with null 
-
-# 2. convert 'k' and 'M' into '000' and '000000'
-
-# 3. Convert the column into an integer
-
-
-
-
-# Replacing each string in the column conditionally. 
-    def clean_follower_count(self,column_name):
-        df_clean_follower_count = self.df.withColumn(
-            column_name,
-            when(self.df.endswith('k'),regexp_replace(self.df,'k','000')) \
-            .when(self.df.endswith('M'),regexp_replace(self.df,'M','000000')) \
-            .when(self.df.endswith('User Info Error'),regexp_replace(self.df,'User Info Error','null'))
-            .otherwise(self.df))
-
-        return df_clean_follower_count
-
-        
-
-
-# convert the 'follower_count' column in the dataframe to an integer 
-
-    def convert_to_integer(self, column_name):
-        df_clean_follower_count = self.df.withColumn(column_name, self.df.cast('integer'))
-        df_clean_follower_count.show()
-        return df_clean_follower_count
-
-
-
-    def clean_spark_dataframe(self):
-        cleaned_df = self.clean_spark_dataframe_rows()\
-            .add_monotonically_increasing_id()\
-            .clean_follower_count("follower_count")\
-            .convert_to_integer("follower_count")
-
-        return cleaned_df 
 	
     def send_to_cassandra(self, cleaned_df):
+        '''
+        Method to send the cleaned dataframe to a Cassandra Database 
+
+        Parameters: 
+        cleaned_df : DataFrame
+        A cleaned dataframe from the previous method: 
+        clean_spark_dataframe_columns()
+
+        '''
+        # Process: 
+        # Write the data to cassandra in the set format 
+        # If the table exists already, overwrite it. 
+        # Set the host and connection port of the database 
+        # Place the data inside the correct keyspace in the Cassandra database 
+        # Lastly set that the data will be a table, by the name 'pinterest_data'
+        # save the process 
         cleaned_df.write \
         .format("org.apache.spark.sql.cassandra") \
         .mode("overwrite") \
