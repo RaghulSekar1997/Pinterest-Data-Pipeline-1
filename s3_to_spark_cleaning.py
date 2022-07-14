@@ -252,22 +252,3 @@ if __name__ == "__main__":
    
 		
 
-
-
- # %%
-# from pyspark.sql import SQLContext 
-
-# # ''.join(string.split()) in order to write a multi-line JSON string here.
-
-# data_source_format = 'org.apache.spark.sql.execution.datasources.hbase'
-# catalog = ''.join("""{
-#     "table":{"namespace":"default", "name":"testtable"},
-#     "rowkey":"key",
-#     "columns":{
-#         "category":{"cf":"rowkey", "col":"category", "type":"string"},
-#         "description":{"cf":"cf", "col":"description", "type":"string"},
-#         "follower_count":{"cf":"cf", "col":"follower_count", "type":"integer"},
-        
-        
-#     }
-# }""".split())
