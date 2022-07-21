@@ -241,14 +241,28 @@ class SparkCleaning:
         .option("keyspace" , "pinterest") \
         .option("table", "pinterest_data") \
         .save()
+    
+    def run_spark_etl(self):
+        '''
+        Method to run the entire ETL process 
+
+        1. Starts the spark session
+        2. Extracts information from the Amazon S3 Bucket 
+        3. Reads the data into a sparkdataframe 
+        4. Transforms the dataframe with some cleaning operations 
+        5. Loads the dataframe as a table inside Apache Cassandra 
+
+        '''
+        self.start_spark_session()
+        self.set_s3_bucket_resource('wr95-pintrest-data-bucket')
+        self.create_and_read_data_into_dataframe(20, 'json-data_0.json')
+        cleaned_df = self.clean_spark_dataframe_columns()
+        self.send_to_cassandra(cleaned_df)
+
 
 if __name__ == "__main__":
     new_dataframe = SparkCleaning()
-    new_dataframe.start_spark_session()
-    new_dataframe.set_s3_bucket_resource('wr95-pintrest-data-bucket')
-    new_dataframe.create_and_read_data_into_dataframe(20, 'json-data_0.json')
-    cleaned_df = new_dataframe.clean_spark_dataframe_columns()
-    new_dataframe.send_to_cassandra(cleaned_df)
+    new_dataframe.run_spark_etl()
    
 		
 
