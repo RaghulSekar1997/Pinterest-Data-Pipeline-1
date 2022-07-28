@@ -132,3 +132,6 @@ dmypy.json
 
 user_posting_emulation.py 
 project_pin_api.py 
+
+# Ignore this file 
+spark_airflow_dag.py 
