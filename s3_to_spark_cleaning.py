@@ -180,7 +180,7 @@ class SparkCleaning:
 
         '''
         # Drop the 'downloaded', 'save_location' and 'index columns' 
-        cleaned_rows = self.df.drop('downloaded', 'save_location', 'index')
+        cleaned_rows = self.df.drop('downloaded', 'save_location')
         # Add a new column called id
         clean_id  = cleaned_rows.withColumn(
             'id', row_number().over(Window.orderBy(monotonically_increasing_id())) - 1
