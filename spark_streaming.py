@@ -3,7 +3,7 @@ import os
 import pyspark.sql.functions as PysparkSQLFunctions 
 from pyspark.sql import SparkSession
 from pyspark.sql.types  import StructField, StructType, StringType, IntegerType
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, regexp_replace
 
 findspark.init() 
 
@@ -54,9 +54,54 @@ jsonSchema = StructType([StructField("index", IntegerType()),
                         StructField("category", StringType()),
                        ])
 
-# Create a stream_df using the schema highlighted above
+# EXTRACT: Create a stream_df using the schema highlighted above
  
 stream_df = stream_df.withColumn("value", PysparkSQLFunctions.from_json(stream_df["value"], jsonSchema)).select(col("value.*"))
+
+
+# TRANSFORM: Clean the dataframe
+
+'''
+Data Cleaning Strategy 
+
+1. Clean the follower count by stripping the prefixes  
+
+2. Drop Save Location and Downloaded columns 
+
+
+'''
+# Drop the "downloaded" and "save_location" columns 
+
+stream_df = stream_df.drop("downloaded", "save_location")
+
+# Remove and replace the suffixes from the follower_count and replace them with their numerical value
+# e.g. 15k is 15000 where k = 1000 and 6M will be 6000000 as M = 1000000
+stream_df = stream_df.withColumn('follower_count', regexp_replace('follower_count','k','000'))
+stream_df = stream_df.withColumn('follower_count', regexp_replace('follower_count','M','000000'))
+
+# Remove and replace 'no value style' strings with nulls 
+
+stream_df = stream_df.withColumn('follower_count', regexp_replace('follower_count','User Info Error','null'))
+stream_df = stream_df.withColumn('description', regexp_replace('description','No description available Story format','null'))
+stream_df = stream_df.withColumn('title', regexp_replace('title', 'No Title Data Available', 'null'))
+stream_df  = stream_df.withColumn('tag_list', regexp_replace('tag_list', 'N,o, ,T,a,g,s, ,A,v,a,i,l,a,b,l,e','null'))
+stream_df = stream_df.withColumn('image_src', regexp_replace('image_src', 'Image src error','null' ))
+
+
+# Cast the follower_count column to an integer 
+stream_df = stream_df.withColumn('follower_count', col('follower_count').cast('integer'))
+# Re-arrange the order of the columns 
+stream_df = stream_df.select(
+            'index',
+            'unique_id',
+            'category',
+            'title',
+            'follower_count',
+            'tag_list',
+            'is_image_or_video',
+            'image_src',
+            'description'
+        )
 
 # Output messages to the terminal (for debugging purposes)
 stream_df.writeStream \

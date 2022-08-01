@@ -201,6 +201,7 @@ class SparkCleaning:
         # Re-arrange the order of the columns 
         cleaned_rows_final_reordered = cleaned_rows_final.select(
             'id',
+            'index'
             'unique_id',
             'category',
             'title',
