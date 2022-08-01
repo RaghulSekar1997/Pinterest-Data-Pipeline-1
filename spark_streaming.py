@@ -1,8 +1,9 @@
 import findspark
 import os
-from json import loads 
-from kafka import KafkaConsumer
+import pyspark.sql.functions as PysparkSQLFunctions 
 from pyspark.sql import SparkSession
+from pyspark.sql.types  import StructField, StructType, StringType, IntegerType
+from pyspark.sql.functions import col
 
 findspark.init() 
 
@@ -24,14 +25,8 @@ spark = SparkSession \
 # Only display Error messages in the console.
 spark.sparkContext.setLogLevel("ERROR")
 
-consumer = KafkaConsumer(
-     kafka_topic_name,
-     bootstrap_servers=['localhost:9092'],
-     auto_offset_reset='earliest',
-     enable_auto_commit=True,
-     value_deserializer=lambda x: loads(x.decode('utf-8')))
      
-# Construct a streaming DataFrame that reads from topic
+# Create a dataframe which reads from the kafka_topic_name 
 stream_df = spark \
         .readStream \
         .format("kafka") \
@@ -43,7 +38,27 @@ stream_df = spark \
 # Select the value part of the kafka message and cast it to a string.
 stream_df = stream_df.selectExpr("CAST(value as STRING)")
 
-# outputting the messages to the console 
+# Set the datatypes of the json messages 
+
+jsonSchema = StructType([StructField("index", IntegerType()),
+                        StructField("unique_id", StringType()),
+                        StructField("title", StringType()),
+                        StructField("description", StringType()),
+                        StructField("follower_count", StringType()),
+                        StructField("tag_list", StringType()),
+                        StructField("poster_name", StringType()),
+                        StructField("is_image_or_video", StringType()),
+                        StructField("image_src", StringType()),
+                        StructField("downloaded", IntegerType()),
+                        StructField("save_location", StringType()),
+                        StructField("category", StringType()),
+                       ])
+
+# Create a stream_df using the schema highlighted above
+ 
+stream_df = stream_df.withColumn("value", PysparkSQLFunctions.from_json(stream_df["value"], jsonSchema)).select(col("value.*"))
+
+# Output messages to the terminal (for debugging purposes)
 stream_df.writeStream \
     .format("console") \
     .outputMode("append") \
